@@ -329,8 +329,11 @@ def delete_question(qid: int, c=Depends(get_conn)):
 def media(name: str):
     if not IMAGE_RE.match(name):
         raise HTTPException(404)
+    safe_name = Path(name).name
+    if safe_name != name:
+        raise HTTPException(404)
     image_dir = db.IMG_DIR.resolve()
-    p = (image_dir / name).resolve()
+    p = (image_dir / safe_name).resolve()
     if not p.is_relative_to(image_dir) or not p.is_file():
         raise HTTPException(404)
     return FileResponse(p, headers={"Cache-Control": "private, max-age=31536000, immutable"})
