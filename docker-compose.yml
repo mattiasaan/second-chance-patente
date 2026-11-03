@@ -1,0 +1,11 @@
+services:
+  patente-quiz:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      # La password viene letta dal file .env (vedi .env.example)
+      PATENTE_PASSWORD: ${PATENTE_PASSWORD:?imposta PATENTE_PASSWORD nel file .env}
+    volumes:
+      - ./data:/data
