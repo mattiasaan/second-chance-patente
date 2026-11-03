@@ -1,4 +1,4 @@
-# Patente Quiz
+# Second Chance Patente
 
 Piccola webapp **self-hosted** per salvare le domande della patente che sbagli e rifarle come quiz, in stile scheda d'esame ministeriale. Pensata per girare su un Raspberry Pi: **FastAPI + SQLite**, frontend in JavaScript puro (nessuna build, nessuna dipendenza), tema scuro e minimale, responsive (PC, tablet, telefono) e installabile come **PWA**.
 
@@ -75,8 +75,8 @@ L'app non contiene le domande ufficiali: le inserisci tu, man mano che le sbagli
 Il modo consigliato. Serve solo Docker con il plugin Compose (su Raspberry Pi OS: `curl -fsSL https://get.docker.com | sh`, poi `sudo usermod -aG docker $USER` e riaccedi). L'immagine funziona su Raspberry a 32 e 64 bit.
 
 ```bash
-git clone https://github.com/<tuo-utente>/patente-quiz.git
-cd patente-quiz
+git clone https://github.com/<tuo-utente>/second-chance-patente.git
+cd second-chance-patente
 
 cp .env.example .env
 nano .env                      # imposta PATENTE_PASSWORD
@@ -170,7 +170,7 @@ Se hai già un tuo reverse proxy (Nginx Proxy Manager, Traefik, Caddy sull'host.
 HTTPS gestito da Cloudflare, nessuna porta aperta sul router. Serve un dominio su Cloudflare.
 
 1. In *Cloudflare Zero Trust → Networks → Tunnels* crea un tunnel di tipo *Cloudflared* e copia il token.
-2. Nel tunnel aggiungi un *Public hostname* (es. `patente.example.com`) con servizio `http://patente-quiz:8000`.
+2. Nel tunnel aggiungi un *Public hostname* (es. `patente.example.com`) con servizio `http://second-chance-patente:8000`.
 3. `.env`:
    ```
    PATENTE_PASSWORD=...
@@ -264,7 +264,7 @@ Lo zip non include lo storico dettagliato delle singole risposte (solo le statis
 ## Aggiornamento
 
 ```bash
-cd patente-quiz
+cd second-chance-patente
 git pull
 docker compose up -d --build
 ```
@@ -282,7 +282,7 @@ Le tabelle mancanti vengono create automaticamente all'avvio; i dati in `data/` 
 ## Struttura del progetto
 
 ```
-patente-quiz/
+second-chance-patente/
 ├── app/
 │   ├── main.py            # API FastAPI, quiz, statistiche, backup
 │   ├── db.py              # SQLite: schema e argomenti iniziali
@@ -297,7 +297,7 @@ patente-quiz/
 ├── deploy/
 │   ├── compose.caddy.yml · Caddyfile   # HTTPS con dominio
 │   ├── compose.cloudflared.yml         # Cloudflare Tunnel
-│   └── patente-quiz.service            # systemd (solo installazione manuale)
+│   └── second-chance-patente.service   # systemd (solo installazione manuale)
 ├── tools/make_icons.py    # rigenera le icone PNG
 ├── tests/test_api.py
 ├── Dockerfile · docker-compose.yml · .dockerignore
@@ -347,14 +347,14 @@ Il frontend non ha build: modifica i file in `static/` e ricarica. Per rigenerar
 
 ```bash
 sudo apt update && sudo apt install -y python3-venv git
-git clone https://github.com/<tuo-utente>/patente-quiz.git && cd patente-quiz
+git clone https://github.com/<tuo-utente>/second-chance-patente.git && cd second-chance-patente
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env && nano .env      # imposta PATENTE_PASSWORD
 ./run.sh                               # http://IP-DEL-RASPBERRY:8000  (PORT=9000 ./run.sh per cambiare porta)
 ```
 
-Per l'avvio automatico copia `deploy/patente-quiz.service` in `/etc/systemd/system/`, adatta utente e percorsi, poi `sudo systemctl enable --now patente-quiz`.
+Per l'avvio automatico copia `deploy/second-chance-patente.service` in `/etc/systemd/system/`, adatta utente e percorsi, poi `sudo systemctl enable --now second-chance-patente`.
 
 ## Licenza
 

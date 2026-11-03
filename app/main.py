@@ -1,4 +1,4 @@
-"""Patente Quiz - backend FastAPI + SQLite."""
+"""Second Chance Patente - backend FastAPI + SQLite."""
 import hashlib
 import io
 import json
@@ -51,7 +51,7 @@ MAX_IMG = 8 * 1024 * 1024
 IMAGE_RE = re.compile(r"^[a-f0-9]{16}\.(jpg|png|webp|gif)$")
 MASTERED_STREAK = 3
 
-app = FastAPI(title="Patente Quiz", docs_url=None, redoc_url=None, openapi_url=None)
+app = FastAPI(title="Second Chance Patente", docs_url=None, redoc_url=None, openapi_url=None)
 api = APIRouter(prefix="/api", dependencies=[Depends(auth.require_auth)])
 
 
@@ -329,8 +329,9 @@ def delete_question(qid: int, c=Depends(get_conn)):
 def media(name: str):
     if not IMAGE_RE.match(name):
         raise HTTPException(404)
-    p = db.IMG_DIR / name
-    if not p.exists():
+    image_dir = db.IMG_DIR.resolve()
+    p = (image_dir / name).resolve()
+    if not p.is_relative_to(image_dir) or not p.is_file():
         raise HTTPException(404)
     return FileResponse(p, headers={"Cache-Control": "private, max-age=31536000, immutable"})
 
@@ -553,7 +554,7 @@ def export_backup(c=Depends(get_conn)):
             if p.exists():
                 z.write(p, "images/" + name)
     buf.seek(0)
-    fname = f"patente-quiz-backup-{date.today().strftime('%Y%m%d')}.zip"
+    fname = f"second-chance-patente-backup-{date.today().strftime('%Y%m%d')}.zip"
     return StreamingResponse(buf, media_type="application/zip",
                              headers={"Content-Disposition": f'attachment; filename="{fname}"'})
 

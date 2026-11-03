@@ -1,6 +1,6 @@
 // Service worker: l'interfaccia si apre subito (anche offline),
 // i dati arrivano sempre dal server.
-const CACHE = 'patente-quiz-v1';
+const CACHE = 'second-chance-patente-v1';
 const SHELL = ['/', '/style.css', '/app.js', '/manifest.webmanifest',
   '/icons/icon.svg', '/icons/icon-192.png', '/icons/icon-512.png'];
 

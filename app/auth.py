@@ -27,7 +27,8 @@ def init(data_dir: Path, password: str) -> None:
             pass
     _password = password
     # La chiave dipende anche dalla password: cambiandola, tutte le sessioni decadono.
-    _key = (f.read_text().strip() + "|" + hashlib.sha256(password.encode()).hexdigest()).encode()
+    secret = f.read_text().strip().encode()
+    _key = hmac.new(secret, password.encode(), hashlib.sha256).digest()
 
 
 def _sign(payload: str) -> str:

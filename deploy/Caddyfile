@@ -1,4 +1,4 @@
 {$DOMAIN} {
 	encode gzip
-	reverse_proxy patente-quiz:8000
+	reverse_proxy second-chance-patente:8000
 }

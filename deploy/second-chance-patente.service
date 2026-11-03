@@ -1,0 +1,24 @@
+# Servizio systemd per avviare Second Chance Patente all'accensione del Raspberry.
+#
+#   sudo cp deploy/second-chance-patente.service /etc/systemd/system/
+#   sudo nano /etc/systemd/system/second-chance-patente.service    # adatta User e percorsi
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now second-chance-patente
+#   journalctl -u second-chance-patente -f                         # log
+#
+# La password si legge dal file .env nella cartella del progetto.
+
+[Unit]
+Description=Second Chance Patente
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi/second-chance-patente
+ExecStart=/home/pi/second-chance-patente/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

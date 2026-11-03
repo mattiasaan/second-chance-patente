@@ -1,7 +1,7 @@
 services:
-  patente-quiz:
+  second-chance-patente:
     build: .
-    container_name: patente-quiz
+    container_name: second-chance-patente
     restart: unless-stopped
     ports:
       # BIND=0.0.0.0 -> raggiungibile in tutta la rete locale (default)

@@ -1,5 +1,5 @@
 'use strict';
-/* Patente Quiz - frontend (vanilla JS, nessuna dipendenza) */
+/* Second Chance Patente - frontend (vanilla JS, nessuna dipendenza) */
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -117,7 +117,7 @@ function showLogin() {
   document.body.dataset.view = 'login';
   root.innerHTML = `<div class="login"><form id="lf">
     <img src="/icons/icon.svg" alt="">
-    <h1>Patente Quiz</h1>
+    <h1>Second Chance Patente</h1>
     <input type="password" id="pw" placeholder="Password" autocomplete="current-password" autofocus>
     <div class="err" id="lerr"></div>
     <button class="btn primary big">Entra</button></form></div>`;
@@ -150,13 +150,15 @@ async function boot() {
 }
 
 const VIEWS = { add: viewAdd, quiz: viewQuiz, library: viewLibrary, stats: viewStats, settings: viewSettings };
+const IMAGE_URL_RE = /^\/media\/[a-f0-9]{16}\.(?:jpg|png|webp|gif)$/;
+const safeImageUrl = url => typeof url === 'string' && IMAGE_URL_RE.test(url) ? url : '';
 function route() {
   if (!view) return;
   const name = (location.hash.replace(/^#\/?/, '') || 'add').split('?')[0];
   stopTimer(); pasteHandler = null; keyHandler = null;
   $$('.nav a').forEach(a => a.classList.toggle('on', a.dataset.v === name));
   document.body.dataset.view = name;
-  (VIEWS[name] || viewAdd)();
+  (Object.prototype.hasOwnProperty.call(VIEWS, name) ? VIEWS[name] : viewAdd)();
   window.scrollTo(0, 0);
 }
 window.addEventListener('hashchange', route);
@@ -303,7 +305,7 @@ async function viewLibrary() {
     $('#list').innerHTML = st.items.length ? st.items.map(q => {
       const tn = q.topic_name ? esc(q.topic_name) : '<i>senza argomento</i>';
       return `<div class="item" data-id="${q.id}">
-        <div class="thumb">${q.image ? `<img src="${q.image}" loading="lazy" alt="">` : ico('img', 22)}</div>
+        <div class="thumb">${safeImageUrl(q.image) ? `<img src="${safeImageUrl(q.image)}" loading="lazy" alt="">` : ico('img', 22)}</div>
         <div class="ibody"><div class="itext">${esc(q.text)}</div>
           <div class="meta"><span class="badge ${q.answer ? 'v' : 'f'}">${q.answer ? 'Vero' : 'Falso'}</span>
             <span>${tn}</span><span>✓${q.correct} ✗${q.wrong}</span></div></div>
@@ -470,11 +472,12 @@ function renderRun() {
   const fb = locked ? (given === q.answer
     ? '<div class="fb ok">Corretto</div>' : `<div class="fb ko">Sbagliato — la risposta giusta è ${q.answer ? 'VERO' : 'FALSO'}</div>`) : '';
   const last = Q.idx === n - 1;
-  view.innerHTML = `<div class="qz${q.image ? '' : ' noimg'}">
+  const imageUrl = safeImageUrl(q.image);
+  view.innerHTML = `<div class="qz${imageUrl ? '' : ' noimg'}">
     <div class="qtop"><button class="iconbtn" id="quit" title="Esci">${ico('x')}</button>
       <span class="tt">${esc((MODES.find(m => m.id === Q.mode) || {}).name || 'Quiz')}</span><span class="timer" id="timer">--:--</span></div>
     ${tabs}<div class="nums">${nums}</div>
-    ${q.image ? `<div class="pimg"><img src="${q.image}" alt=""></div>` : ''}
+    ${imageUrl ? `<div class="pimg"><img src="${imageUrl}" alt=""></div>` : ''}
     <div class="pbody"><span class="no">${Q.idx + 1}</span><p>${esc(q.text)}</p>${fb}</div>
     <div class="ptf">${btn(1, 'Vero')}${btn(0, 'Falso')}</div>
     <div class="qbar"><button class="btn" id="finish">Termina quiz</button>
@@ -546,7 +549,7 @@ function renderResults() {
       ${r.wrong.length ? '<button class="btn primary" id="redo">Rifai gli errori</button>' : ''}
       <button class="btn" id="newq">Nuovo quiz</button></div>
     ${r.wrong.length ? '<h2>Da rivedere</h2>' : '<div class="empty">Nessun errore, ottimo lavoro!</div>'}
-    ${r.wrong.map(w => `<div class="wq">${w.image ? `<div class="thumb"><img src="${w.image}" alt=""></div>` : ''}
+    ${r.wrong.map(w => `<div class="wq">${safeImageUrl(w.image) ? `<div class="thumb"><img src="${safeImageUrl(w.image)}" alt=""></div>` : ''}
       <div class="ibody"><div>${esc(w.text)}</div><div class="meta">
         <span>Tua risposta: <b>${w.given === null ? 'nessuna' : w.given ? 'Vero' : 'Falso'}</b></span>
         <span>Corretta: <span class="badge ${w.answer ? 'v' : 'f'}">${w.answer ? 'Vero' : 'Falso'}</span></span></div></div></div>`).join('')}</div>`;
