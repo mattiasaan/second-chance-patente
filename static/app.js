@@ -158,7 +158,14 @@ function route() {
   stopTimer(); pasteHandler = null; keyHandler = null;
   $$('.nav a').forEach(a => a.classList.toggle('on', a.dataset.v === name));
   document.body.dataset.view = name;
-  (Object.prototype.hasOwnProperty.call(VIEWS, name) ? VIEWS[name] : viewAdd)();
+  switch (name) {
+    case 'add': viewAdd(); break;
+    case 'quiz': viewQuiz(); break;
+    case 'library': viewLibrary(); break;
+    case 'stats': viewStats(); break;
+    case 'settings': viewSettings(); break;
+    default: viewAdd();
+  }
   window.scrollTo(0, 0);
 }
 window.addEventListener('hashchange', route);
@@ -478,11 +485,12 @@ function renderRun() {
       <span class="tt">${esc((MODES.find(m => m.id === Q.mode) || {}).name || 'Quiz')}</span><span class="timer" id="timer">--:--</span></div>
     ${tabs}<div class="nums">${nums}</div>
     ${imageUrl ? `<div class="pimg"><img src="${imageUrl}" alt=""></div>` : ''}
-    <div class="pbody"><span class="no">${Q.idx + 1}</span><p>${esc(q.text)}</p>${fb}</div>
+    <div class="pbody"><span class="no">${Q.idx + 1}</span><p id="question-text"></p>${fb}</div>
     <div class="ptf">${btn(1, 'Vero')}${btn(0, 'Falso')}</div>
     <div class="qbar"><button class="btn" id="finish">Termina quiz</button>
       <div class="grp"><button class="btn" id="prev" ${Q.idx === 0 ? 'disabled' : ''}>${ico('left', 20)}</button>
         <button class="btn${last ? '' : ' primary'}" id="next" ${last ? 'disabled' : ''}>${ico('right', 20)}</button></div></div></div>`;
+  $('#question-text').textContent = q.text;
   const go = i => { Q.idx = Math.max(0, Math.min(n - 1, i)); persistQ(); renderRun(); };
   const answer = a => {
     if (locked) return;
@@ -550,9 +558,12 @@ function renderResults() {
       <button class="btn" id="newq">Nuovo quiz</button></div>
     ${r.wrong.length ? '<h2>Da rivedere</h2>' : '<div class="empty">Nessun errore, ottimo lavoro!</div>'}
     ${r.wrong.map(w => `<div class="wq">${safeImageUrl(w.image) ? `<div class="thumb"><img src="${safeImageUrl(w.image)}" alt=""></div>` : ''}
-      <div class="ibody"><div>${esc(w.text)}</div><div class="meta">
+      <div class="ibody"><div class="wrong-text"></div><div class="meta">
         <span>Tua risposta: <b>${w.given === null ? 'nessuna' : w.given ? 'Vero' : 'Falso'}</b></span>
         <span>Corretta: <span class="badge ${w.answer ? 'v' : 'f'}">${w.answer ? 'Vero' : 'Falso'}</span></span></div></div></div>`).join('')}</div>`;
+  view.querySelectorAll('.wrong-text').forEach((element, index) => {
+    element.textContent = r.wrong[index].text;
+  });
   const redo = $('#redo');
   if (redo) redo.onclick = async () => {
     try { const ids = r.wrong.map(w => w.id).join(','); Q = null; await startQuiz(await api('/api/quiz?mode=ids&ids=' + ids), true); }

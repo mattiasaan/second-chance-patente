@@ -333,8 +333,12 @@ def media(name: str):
     if safe_name != name:
         raise HTTPException(404)
     image_dir = db.IMG_DIR.resolve()
-    p = (image_dir / safe_name).resolve()
-    if not p.is_relative_to(image_dir) or not p.is_file():
+    p = next(
+        (candidate for candidate in image_dir.iterdir()
+         if candidate.name == safe_name and candidate.is_file()),
+        None,
+    )
+    if p is None:
         raise HTTPException(404)
     return FileResponse(p, headers={"Cache-Control": "private, max-age=31536000, immutable"})
 
