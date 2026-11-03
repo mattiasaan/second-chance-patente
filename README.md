@@ -10,7 +10,7 @@ L'app non contiene le domande ufficiali: le inserisci tu, man mano che le sbagli
 
 - [Funzionalità](#funzionalità)
 - [Installazione con Docker](#installazione-con-docker)
-- [HTTPS e installazione come app (PWA)](#https-e-installazione-come-app-pwa)
+- [Come raggiungere l'app (rete, HTTPS e PWA)](#come-raggiungere-lapp-rete-https-e-pwa)
 - [Configurazione](#configurazione)
 - [Come si usa](#come-si-usa)
 - [Argomenti e suggerimento automatico](#argomenti-e-suggerimento-automatico)
@@ -97,35 +97,105 @@ Apri `http://<ip-del-raspberry>:8000`, entra con la password e inizia. Il contai
 | Fermare / riavviare | `docker compose stop` · `docker compose restart` |
 | Spegnere e rimuovere il container (i dati restano) | `docker compose down` |
 
-Altra porta: aggiungi `PORT=9000` nel `.env`. Fuso orario diverso: `TZ=...` nel `.env`.
+Altra porta: `PORT=9000` nel `.env`. Fuso orario diverso: `TZ=...`. Per HTTPS, accesso da fuori casa e installazione come app vedi [Come raggiungere l'app](#come-raggiungere-lapp-rete-https-e-pwa).
 
 > Installazione senza Docker (venv + systemd): vedi [Installazione manuale](#installazione-manuale-senza-docker).
 
 ---
 
-## HTTPS e installazione come app (PWA)
+## Come raggiungere l'app (rete, HTTPS e PWA)
 
-I browser abilitano **service worker e installazione come app solo su HTTPS** (o su `localhost`). Con `http://192.168.x.x` l'app funziona, ma Chrome non propone "Installa app". Soluzioni, dalla più semplice:
+L'app funziona su semplice HTTP, ma i browser abilitano **service worker e "Installa app" solo su HTTPS** (o su `localhost`). Scegli lo scenario che ti serve:
 
-1. **Tailscale** (consigliato per uso personale, nessuna porta aperta su Internet): installa Tailscale sul Raspberry e sui tuoi dispositivi, abilita HTTPS nella console di amministrazione, poi:
+| Scenario | HTTPS / PWA | Porte aperte sul router | Serve un dominio | Accesso da fuori casa |
+|---|---|---|---|---|
+| [1. Solo rete locale](#1-solo-rete-locale-default) | no (solo HTTP) | no | no | no |
+| [2. Tailscale](#2-tailscale-consigliato-per-uso-personale) | sì | no | no | sì, dai tuoi dispositivi |
+| [3. Caddy + dominio](#3-caddy--dominio-proprio) | sì | 80 e 443 | sì | sì, da chiunque abbia la password |
+| [4. Cloudflare Tunnel](#4-cloudflare-tunnel) | sì | no | sì (su Cloudflare) | sì, da chiunque abbia la password |
+
+Le variabili usate negli esempi vanno nel file `.env` (vedi [Configurazione](#configurazione)). Per gli scenari 2-4 imposta sempre **`BIND=127.0.0.1`** (l'app non è più raggiungibile direttamente dalla rete) e **`FORWARDED_ALLOW_IPS=*`** (l'app si fida degli header del proxy: serve per riconoscere il cookie HTTPS e l'IP reale di chi prova la password).
+
+> ⚠️ Non impostare `FORWARDED_ALLOW_IPS=*` lasciando `BIND=0.0.0.0`: chiunque in rete potrebbe falsificare gli header e aggirare il limite di tentativi.
+
+### 1. Solo rete locale (default)
+
+Nessuna configurazione: `docker compose up -d --build` e apri `http://<ip-del-raspberry>:8000` da qualunque dispositivo di casa.
+
+- L'app funziona completamente, ma Chrome/Edge non proporranno "Installa app" (manca HTTPS). Su iPhone, "Aggiungi a Home" funziona comunque come scorciatoia.
+- Sul Raspberry stesso, `http://localhost:8000` conta come sicuro e la PWA si installa.
+- Per provare l'installazione in LAN su Chrome Android: `chrome://flags/#unsafely-treat-insecure-origin-as-secure` e inserisci l'indirizzo del Raspberry.
+- Se la rete non è fidata, usa una password lunga: il traffico non è cifrato.
+
+### 2. Tailscale (consigliato per uso personale)
+
+HTTPS valido, raggiungibile da casa e fuori, **nessuna porta aperta**. L'indirizzo è visibile solo ai dispositivi del tuo tailnet.
+
+1. Installa Tailscale sul Raspberry e sui tuoi dispositivi, poi nella [console di amministrazione](https://login.tailscale.com/admin/dns) abilita *MagicDNS* e *HTTPS Certificates*.
+2. `.env`:
+   ```
+   PATENTE_PASSWORD=...
+   BIND=127.0.0.1
+   FORWARDED_ALLOW_IPS=*
+   ```
+3. Avvia l'app e pubblicala nel tailnet:
    ```bash
+   docker compose up -d --build
    sudo tailscale serve --bg 8000
    ```
-   Tailscale ti darà un indirizzo `https://<nome>.<tailnet>.ts.net` raggiungibile dai tuoi dispositivi.
-2. **Reverse proxy con dominio** (es. Caddy, certificato Let's Encrypt automatico):
+4. Apri l'indirizzo `https://<nome>.<tailnet>.ts.net` che Tailscale mostra (`tailscale serve status`) e installa la PWA.
+
+Per smettere di condividerla: `sudo tailscale serve reset`. Non usare `tailscale funnel` a meno che tu voglia davvero renderla pubblica su Internet.
+
+### 3. Caddy + dominio proprio
+
+Caddy ottiene e rinnova da solo il certificato Let's Encrypt. Serve un dominio che punti all'IP pubblico del Raspberry e le porte **80 e 443** inoltrate dal router.
+
+1. `.env`:
    ```
-   patente.tuodominio.it {
-       reverse_proxy 127.0.0.1:8000
-   }
+   PATENTE_PASSWORD=...
+   DOMAIN=patente.example.com
+   BIND=127.0.0.1
+   FORWARDED_ALLOW_IPS=*
    ```
-3. **Cloudflare Tunnel**, se non vuoi aprire porte sul router.
-4. Solo per prove in rete locale, su Chrome Android: `chrome://flags/#unsafely-treat-insecure-origin-as-secure` e inserisci l'indirizzo del Raspberry.
+2. Avvio (il file aggiunge un container Caddy):
+   ```bash
+   docker compose -f docker-compose.yml -f deploy/compose.caddy.yml up -d --build
+   ```
+
+Se hai già un tuo reverse proxy (Nginx Proxy Manager, Traefik, Caddy sull'host...) punta semplicemente a `http://127.0.0.1:8000` e passa gli header `X-Forwarded-For` e `X-Forwarded-Proto`.
+
+### 4. Cloudflare Tunnel
+
+HTTPS gestito da Cloudflare, nessuna porta aperta sul router. Serve un dominio su Cloudflare.
+
+1. In *Cloudflare Zero Trust → Networks → Tunnels* crea un tunnel di tipo *Cloudflared* e copia il token.
+2. Nel tunnel aggiungi un *Public hostname* (es. `patente.example.com`) con servizio `http://patente-quiz:8000`.
+3. `.env`:
+   ```
+   PATENTE_PASSWORD=...
+   TUNNEL_TOKEN=...
+   BIND=127.0.0.1
+   FORWARDED_ALLOW_IPS=*
+   ```
+4. Avvio:
+   ```bash
+   docker compose -f docker-compose.yml -f deploy/compose.cloudflared.yml up -d --build
+   ```
+
+### Installare la PWA
 
 Una volta su HTTPS:
-- **Android/Chrome e PC (Chrome/Edge)**: menu del browser → *Installa app*.
+- **Android / Chrome e PC (Chrome/Edge)**: menu del browser → *Installa app*.
 - **iPhone/iPad (Safari)**: Condividi → *Aggiungi a Home*.
 
-Il cookie di sessione diventa automaticamente `Secure` quando l'app viene servita in HTTPS.
+Il cookie di sessione diventa `Secure` automaticamente quando la richiesta arriva via HTTPS (header `X-Forwarded-Proto`).
+
+### Se esponi l'app su Internet (scenari 3 e 4)
+
+- Usa una **password lunga e unica**: è l'unica barriera. Dopo 5 tentativi errati dallo stesso IP l'accesso è bloccato per 1 minuto.
+- Valuta di mettere davanti un ulteriore controllo di accesso (es. Cloudflare Access) se l'app contiene dati che non vuoi rendere raggiungibili da tutti.
+- Tieni aggiornato il sistema e l'immagine (`git pull` + `docker compose up -d --build`).
 
 ---
 
@@ -137,8 +207,12 @@ Le impostazioni si leggono da variabili d'ambiente o dal file `.env` nella carte
 |---|---|---|
 | `PATENTE_PASSWORD` | sì | Password di accesso (minimo 4 caratteri). Se manca l'app non parte. |
 | `PATENTE_DATA_DIR` | no | Cartella dati. In Docker è già impostata su `/data` (volume `./data`). |
-| `PORT` | no | Porta esposta (default `8000`). |
+| `PORT` | no | Porta sul Raspberry (default `8000`). |
 | `TZ` | no | Fuso orario (default `Europe/Rome`). |
+| `BIND` | no | `0.0.0.0` (default): raggiungibile in LAN. `127.0.0.1`: solo dal Raspberry, per Tailscale/Caddy/Cloudflare. |
+| `FORWARDED_ALLOW_IPS` | no | IP di cui fidarsi per gli header `X-Forwarded-*` (default `127.0.0.1`). Usa `*` solo con `BIND=127.0.0.1`. |
+| `DOMAIN` | solo Caddy | Dominio per `deploy/compose.caddy.yml`. |
+| `TUNNEL_TOKEN` | solo Cloudflare | Token per `deploy/compose.cloudflared.yml`. |
 
 Cambiando la password, tutte le sessioni già aperte vengono disconnesse.
 
@@ -202,7 +276,7 @@ Le tabelle mancanti vengono create automaticamente all'avvio; i dati in `data/` 
 - Accesso con **password unica**; sessione tramite cookie firmato (`HttpOnly`, `SameSite=Lax`, `Secure` su HTTPS) valido 30 giorni.
 - **Limite tentativi**: dopo 5 password errate l'accesso viene bloccato per 1 minuto.
 - Database e immagini sono accessibili **solo dopo il login**; le immagini sono verificate (PNG, JPG, WEBP, GIF) e salvate con un nome derivato dal loro contenuto (hash).
-- Se esponi l'app fuori dalla rete di casa, usa **HTTPS** e una password lunga. Tailscale o un tunnel evitano di aprire porte sul router.
+- Se esponi l'app fuori dalla rete di casa, usa **HTTPS** e una password lunga: vedi [Come raggiungere l'app](#come-raggiungere-lapp-rete-https-e-pwa). Tailscale o un tunnel evitano di aprire porte sul router.
 - Nessuna telemetria e nessuna richiesta verso servizi esterni.
 
 ## Struttura del progetto
@@ -220,7 +294,10 @@ patente-quiz/
 │   ├── sw.js              # service worker (PWA)
 │   ├── manifest.webmanifest
 │   └── icons/
-├── deploy/patente-quiz.service   # unit systemd (solo installazione manuale)
+├── deploy/
+│   ├── compose.caddy.yml · Caddyfile   # HTTPS con dominio
+│   ├── compose.cloudflared.yml         # Cloudflare Tunnel
+│   └── patente-quiz.service            # systemd (solo installazione manuale)
 ├── tools/make_icons.py    # rigenera le icone PNG
 ├── tests/test_api.py
 ├── Dockerfile · docker-compose.yml · .dockerignore

@@ -1,0 +1,17 @@
+# Cloudflare Tunnel: nessuna porta da aprire sul router, HTTPS gestito da Cloudflare.
+# Richiede un dominio su Cloudflare. Crea il tunnel da
+#   Cloudflare Zero Trust -> Networks -> Tunnels -> Create tunnel (Cloudflared)
+# copia il token e imposta come "Public hostname" il servizio:  http://patente-quiz:8000
+#
+# .env:  TUNNEL_TOKEN=...   BIND=127.0.0.1   FORWARDED_ALLOW_IPS=*
+# Avvio: docker compose -f docker-compose.yml -f deploy/compose.cloudflared.yml up -d --build
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: patente-quiz-cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?imposta TUNNEL_TOKEN nel file .env}
+    depends_on:
+      - patente-quiz

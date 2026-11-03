@@ -1,0 +1,26 @@
+# HTTPS automatico (Let's Encrypt) con dominio tuo. Richiede:
+#  - un dominio che punta all'IP pubblico del Raspberry
+#  - porte 80 e 443 inoltrate dal router al Raspberry
+#
+# .env:  DOMAIN=patente.example.com   BIND=127.0.0.1   FORWARDED_ALLOW_IPS=*
+# Avvio: docker compose -f docker-compose.yml -f deploy/compose.caddy.yml up -d --build
+services:
+  caddy:
+    image: caddy:2
+    container_name: patente-quiz-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?imposta DOMAIN nel file .env}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - patente-quiz
+
+volumes:
+  caddy_data:
+  caddy_config:

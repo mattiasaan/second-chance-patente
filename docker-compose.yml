@@ -4,10 +4,15 @@ services:
     container_name: patente-quiz
     restart: unless-stopped
     ports:
-      - "${PORT:-8000}:8000"
+      # BIND=0.0.0.0 -> raggiungibile in tutta la rete locale (default)
+      # BIND=127.0.0.1 -> solo dal Raspberry stesso: da usare con Tailscale, Caddy, Cloudflare...
+      - "${BIND:-0.0.0.0}:${PORT:-8000}:8000"
     environment:
       # Letta dal file .env (vedi .env.example)
       PATENTE_PASSWORD: ${PATENTE_PASSWORD:?imposta PATENTE_PASSWORD nel file .env}
       TZ: ${TZ:-Europe/Rome}
+      # Da quali IP fidarsi per gli header X-Forwarded-* (IP reale per il limite tentativi, https).
+      # Imposta "*" solo se l'app è dietro un proxy/tunnel e NON è esposta direttamente (BIND=127.0.0.1).
+      FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:-127.0.0.1}
     volumes:
       - ./data:/data     # database + immagini: da salvare nei backup
