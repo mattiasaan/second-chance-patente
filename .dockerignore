@@ -1,0 +1,11 @@
+.env
+.git
+data/
+.venv/
+__pycache__/
+*.pyc
+tests/
+tools/
+deploy/
+*.zip
+README.md

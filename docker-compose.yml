@@ -1,11 +1,13 @@
 services:
   patente-quiz:
     build: .
+    container_name: patente-quiz
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "${PORT:-8000}:8000"
     environment:
-      # La password viene letta dal file .env (vedi .env.example)
+      # Letta dal file .env (vedi .env.example)
       PATENTE_PASSWORD: ${PATENTE_PASSWORD:?imposta PATENTE_PASSWORD nel file .env}
+      TZ: ${TZ:-Europe/Rome}
     volumes:
-      - ./data:/data
+      - ./data:/data     # database + immagini: da salvare nei backup

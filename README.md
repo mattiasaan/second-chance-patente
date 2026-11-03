@@ -9,9 +9,7 @@ L'app non contiene le domande ufficiali: le inserisci tu, man mano che le sbagli
 ## Indice
 
 - [Funzionalità](#funzionalità)
-- [Installazione su Raspberry Pi](#installazione-su-raspberry-pi)
-- [Avvio automatico (systemd)](#avvio-automatico-systemd)
-- [Docker](#docker)
+- [Installazione con Docker](#installazione-con-docker)
 - [HTTPS e installazione come app (PWA)](#https-e-installazione-come-app-pwa)
 - [Configurazione](#configurazione)
 - [Come si usa](#come-si-usa)
@@ -24,6 +22,7 @@ L'app non contiene le domande ufficiali: le inserisci tu, man mano che le sbagli
 - [API](#api)
 - [Sviluppo e test](#sviluppo-e-test)
 - [Limiti noti](#limiti-noti)
+- [Installazione manuale](#installazione-manuale-senza-docker)
 
 ---
 
@@ -71,50 +70,36 @@ L'app non contiene le domande ufficiali: le inserisci tu, man mano che le sbagli
 
 ---
 
-## Installazione su Raspberry Pi
+## Installazione con Docker
 
-Testato con Python 3.11+ (Raspberry Pi OS Bookworm ha già la versione giusta).
+Il modo consigliato. Serve solo Docker con il plugin Compose (su Raspberry Pi OS: `curl -fsSL https://get.docker.com | sh`, poi `sudo usermod -aG docker $USER` e riaccedi). L'immagine funziona su Raspberry a 32 e 64 bit.
 
 ```bash
-sudo apt update && sudo apt install -y python3-venv git
 git clone https://github.com/<tuo-utente>/patente-quiz.git
 cd patente-quiz
 
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-
 cp .env.example .env
-nano .env            # imposta PATENTE_PASSWORD
+nano .env                      # imposta PATENTE_PASSWORD
 
-./run.sh             # avvia su http://IP-DEL-RASPBERRY:8000
+docker compose up -d --build   # prima build: qualche minuto sul Raspberry
 ```
 
-Apri `http://<ip-del-raspberry>:8000` dal browser, entra con la password e inizia ad aggiungere domande. I dati vengono salvati nella cartella `data/` (database `patente.db` + cartella `images/`).
+Apri `http://<ip-del-raspberry>:8000`, entra con la password e inizia. Il container riparte da solo a ogni accensione (`restart: unless-stopped`).
 
-Per usare un'altra porta: `PORT=9000 ./run.sh`.
+**Dati**: restano nella cartella `./data` accanto al progetto (`patente.db` + `images/` + `secret.key`). Sono l'unica cosa da salvare nei backup e sopravvivono a rebuild e aggiornamenti.
 
-## Avvio automatico (systemd)
+**Comandi utili**
 
-Per far partire l'app a ogni accensione del Raspberry:
+| Cosa | Comando |
+|---|---|
+| Log in tempo reale | `docker compose logs -f` |
+| Stato (e healthcheck) | `docker compose ps` |
+| Fermare / riavviare | `docker compose stop` · `docker compose restart` |
+| Spegnere e rimuovere il container (i dati restano) | `docker compose down` |
 
-```bash
-sudo cp deploy/patente-quiz.service /etc/systemd/system/
-sudo nano /etc/systemd/system/patente-quiz.service   # adatta User e percorsi se non sei "pi"
-sudo systemctl daemon-reload
-sudo systemctl enable --now patente-quiz
-```
+Altra porta: aggiungi `PORT=9000` nel `.env`. Fuso orario diverso: `TZ=...` nel `.env`.
 
-Log: `journalctl -u patente-quiz -f`. Riavvio dopo un aggiornamento: `sudo systemctl restart patente-quiz`.
-
-## Docker
-
-```bash
-cp .env.example .env     # imposta PATENTE_PASSWORD
-docker compose up -d --build
-```
-
-I dati restano nella cartella `./data` sul tuo host.
+> Installazione senza Docker (venv + systemd): vedi [Installazione manuale](#installazione-manuale-senza-docker).
 
 ---
 
@@ -151,8 +136,9 @@ Le impostazioni si leggono da variabili d'ambiente o dal file `.env` nella carte
 | Variabile | Obbligatoria | Descrizione |
 |---|---|---|
 | `PATENTE_PASSWORD` | sì | Password di accesso (minimo 4 caratteri). Se manca l'app non parte. |
-| `PATENTE_DATA_DIR` | no | Cartella di database e immagini (default `./data`). |
-| `PORT` | no | Solo per `run.sh` (default `8000`). |
+| `PATENTE_DATA_DIR` | no | Cartella dati. In Docker è già impostata su `/data` (volume `./data`). |
+| `PORT` | no | Porta esposta (default `8000`). |
+| `TZ` | no | Fuso orario (default `Europe/Rome`). |
 
 Cambiando la password, tutte le sessioni già aperte vengono disconnesse.
 
@@ -197,7 +183,7 @@ Come vengono aggiornate le statistiche: ogni risposta data aggiorna *viste / giu
 
 - **Esporta**: *Altro → Backup → Esporta backup* scarica uno zip (`questions.json` + cartella `images/`).
 - **Importa**: *Altro → Backup → Importa backup* unisce lo zip ai dati attuali; le domande già presenti (stesso testo) vengono saltate, gli argomenti mancanti creati.
-- Alternativa manuale: copia la cartella `data/` (con l'app ferma, o usa `sqlite3 data/patente.db ".backup copia.db"`).
+- Alternativa: copia la cartella `data/` (meglio con il container fermo: `docker compose stop`).
 
 Lo zip non include lo storico dettagliato delle singole risposte (solo le statistiche per domanda e l'elenco dei quiz svolti).
 
@@ -206,11 +192,10 @@ Lo zip non include lo storico dettagliato delle singole risposte (solo le statis
 ```bash
 cd patente-quiz
 git pull
-source .venv/bin/activate && pip install -r requirements.txt
-sudo systemctl restart patente-quiz
+docker compose up -d --build
 ```
 
-Le tabelle mancanti vengono create automaticamente all'avvio; i tuoi dati in `data/` non vengono toccati. Dopo un aggiornamento dell'interfaccia, ricarica la pagina un paio di volte (il service worker mostra prima la versione in cache e poi scarica quella nuova).
+Le tabelle mancanti vengono create automaticamente all'avvio; i dati in `data/` non vengono toccati. Dopo un aggiornamento dell'interfaccia ricarica la pagina un paio di volte (il service worker mostra prima la versione in cache e poi scarica quella nuova).
 
 ## Sicurezza
 
@@ -235,10 +220,10 @@ patente-quiz/
 │   ├── sw.js              # service worker (PWA)
 │   ├── manifest.webmanifest
 │   └── icons/
-├── deploy/patente-quiz.service   # unit systemd
+├── deploy/patente-quiz.service   # unit systemd (solo installazione manuale)
 ├── tools/make_icons.py    # rigenera le icone PNG
 ├── tests/test_api.py
-├── Dockerfile · docker-compose.yml
+├── Dockerfile · docker-compose.yml · .dockerignore
 ├── requirements.txt · requirements-dev.txt
 ├── run.sh · .env.example · LICENSE
 ```
@@ -280,6 +265,19 @@ Il frontend non ha build: modifica i file in `static/` e ricarica. Per rigenerar
 - Offline si apre l'interfaccia ma, per salvare e fare quiz, serve raggiungere il Raspberry.
 - Il suggerimento dell'argomento è basato su parole chiave, non su un modello di linguaggio: è un aiuto, non una classificazione perfetta.
 - Il formato delle domande è solo Vero/Falso, come nella prova ministeriale della patente B.
+
+## Installazione manuale (senza Docker)
+
+```bash
+sudo apt update && sudo apt install -y python3-venv git
+git clone https://github.com/<tuo-utente>/patente-quiz.git && cd patente-quiz
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env && nano .env      # imposta PATENTE_PASSWORD
+./run.sh                               # http://IP-DEL-RASPBERRY:8000  (PORT=9000 ./run.sh per cambiare porta)
+```
+
+Per l'avvio automatico copia `deploy/patente-quiz.service` in `/etc/systemd/system/`, adatta utente e percorsi, poi `sudo systemctl enable --now patente-quiz`.
 
 ## Licenza
 
