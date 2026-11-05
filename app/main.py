@@ -474,12 +474,20 @@ def finish_quiz(body: FinishIn, c=Depends(get_conn)):
 
 
 # ---------------------------------------------------------------- statistiche
+DAILY_DAYS = 120      # giorni di attività restituiti (heatmap + grafico a barre)
+SESSIONS_KEPT = 100   # quiz recenti restituiti (il filtro per periodo lo fa il client)
+
+
 @api.get("/stats")
 def stats(c=Depends(get_conn)):
+    # Ogni domanda sta in uno e un solo stato: mai viste / da ripassare /
+    # padroneggiate / in apprendimento (le quattro somme fanno sempre il totale).
     t = c.execute(
         "SELECT COUNT(*) AS n, COALESCE(SUM(seen=0),0) AS unseen, "
         f"COALESCE(SUM(streak>={MASTERED_STREAK}),0) AS mastered, "
         f"COALESCE(SUM(wrong>0 AND streak<{MASTERED_STREAK}),0) AS review, "
+        f"COALESCE(SUM(seen>0 AND wrong=0 AND streak<{MASTERED_STREAK}),0) AS learning, "
+        "COALESCE(SUM(wrong>0),0) AS wrong_any, "
         "COALESCE(SUM(correct),0) AS correct, COALESCE(SUM(wrong),0) AS wrong FROM questions"
     ).fetchone()
     attempts = t["correct"] + t["wrong"]
@@ -489,7 +497,7 @@ def stats(c=Depends(get_conn)):
         "COALESCE(SUM(passed=1),0) AS passed, COALESCE(SUM(correct),0) AS c, "
         "COALESCE(SUM(total),0) AS t FROM sessions").fetchone()
     sessions = [dict(r) for r in c.execute(
-        "SELECT * FROM sessions ORDER BY id DESC LIMIT 20").fetchall()][::-1]
+        "SELECT * FROM sessions ORDER BY id DESC LIMIT ?", (SESSIONS_KEPT,)).fetchall()][::-1]
 
     topics = []
     for r in c.execute(
@@ -498,40 +506,46 @@ def stats(c=Depends(get_conn)):
             "ON q.topic_id = t.id GROUP BY t.id HAVING n > 0 ORDER BY n DESC").fetchall():
         a = r["correct"] + r["wrong"]
         topics.append({"id": r["id"], "name": r["name"], "count": r["n"], "attempts": a,
+                       "correct": r["correct"], "wrong": r["wrong"],
                        "accuracy": r["correct"] / a if a else None})
     r = c.execute("SELECT COUNT(*) AS n, COALESCE(SUM(correct),0) AS correct, "
                   "COALESCE(SUM(wrong),0) AS wrong FROM questions WHERE topic_id IS NULL").fetchone()
     if r["n"]:
         a = r["correct"] + r["wrong"]
         topics.append({"id": None, "name": "Senza argomento", "count": r["n"], "attempts": a,
+                       "correct": r["correct"], "wrong": r["wrong"],
                        "accuracy": r["correct"] / a if a else None})
 
     hardest = [qdict(r) for r in c.execute(
         Q_SELECT + " WHERE q.wrong > 0 ORDER BY CAST(q.wrong AS REAL) / q.seen DESC, "
                    "q.wrong DESC LIMIT 8").fetchall()]
 
-    days = {r["d"]: r["n"] for r in c.execute(
-        "SELECT date(ts, 'unixepoch', 'localtime') AS d, COUNT(*) AS n FROM attempts "
-        "WHERE ts >= ? GROUP BY d", (now() - 400 * 86400,)).fetchall()}
+    # Risposte giuste/sbagliate per giorno (ora locale, vedi TZ), zero-filled.
+    per_day = {r["d"]: (r["c"], r["w"]) for r in c.execute(
+        "SELECT date(ts, 'unixepoch', 'localtime') AS d, SUM(correct) AS c, "
+        "SUM(1 - correct) AS w FROM attempts WHERE ts >= ? GROUP BY d",
+        (now() - 400 * 86400,)).fetchall()}
     today = date.today()
-    activity = [{"day": (today - timedelta(days=i)).isoformat(),
-                 "count": days.get((today - timedelta(days=i)).isoformat(), 0)}
-                for i in range(13, -1, -1)]
+    daily = []
+    for i in range(DAILY_DAYS - 1, -1, -1):
+        day = (today - timedelta(days=i)).isoformat()
+        cw = per_day.get(day, (0, 0))
+        daily.append({"day": day, "correct": cw[0], "wrong": cw[1]})
     streak_days = 0
-    d = today if days.get(today.isoformat()) else today - timedelta(days=1)
-    while days.get(d.isoformat()):
+    d = today if today.isoformat() in per_day else today - timedelta(days=1)
+    while d.isoformat() in per_day:
         streak_days += 1
         d -= timedelta(days=1)
 
     return {
-        "questions": t["n"], "unseen": t["unseen"], "mastered": t["mastered"],
-        "review": t["review"],
+        "questions": t["n"], "attempts": attempts,
         "accuracy": t["correct"] / attempts if attempts else None,
-        "attempts": attempts,
+        "unseen": t["unseen"], "mastered": t["mastered"], "review": t["review"],
+        "learning": t["learning"], "wrong_any": t["wrong_any"],
         "sessions_total": agg["n"], "sim_total": agg["sim"], "sim_passed": agg["passed"],
         "avg_score": agg["c"] / agg["t"] if agg["t"] else None,
         "sessions": sessions, "topics": topics, "hardest": hardest,
-        "activity": activity, "streak_days": streak_days,
+        "daily": daily, "streak_days": streak_days,
     }
 
 

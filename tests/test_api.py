@@ -68,6 +68,13 @@ def test_quiz_and_stats(client):
     assert res["correct"] == 1 and res["unanswered"] == len(qs) - 1
     stats = client.get("/api/stats").json()
     assert stats["sessions_total"] >= 1 and stats["questions"] >= 5
+    # ogni domanda sta in uno e un solo stato
+    assert (stats["unseen"] + stats["mastered"] + stats["review"] + stats["learning"]
+            == stats["questions"])
+    assert len(stats["daily"]) == 120
+    today = stats["daily"][-1]
+    assert today["correct"] + today["wrong"] >= 1 and stats["streak_days"] >= 1
+    assert stats["sessions"][-1]["mode"] == "sim"
 
 
 def test_backup_roundtrip(client):

@@ -8,8 +8,8 @@ import zlib
 from pathlib import Path
 
 OUT = Path(__file__).resolve().parent.parent / "static" / "icons"
-BG = (13, 15, 19)
-FG = (74, 222, 128)
+BG = (11, 13, 17)
+FG = (52, 211, 153)
 
 
 def seg_dist(px, py, ax, ay, bx, by):

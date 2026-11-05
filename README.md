@@ -54,11 +54,11 @@ L'app non contiene le domande ufficiali: le inserisci tu, man mano che le sbagli
 - Un quiz interrotto (ricarica della pagina, telefono bloccato) **si riprende** da dove l'avevi lasciato.
 
 ### Statistiche
-- Domande salvate, percentuale di risposte corrette, quiz svolti, simulazioni superate.
-- Domande **da ripassare**, **padroneggiate** (3 risposte giuste di fila), **mai viste**.
-- Giorni consecutivi di allenamento.
-- Grafico degli ultimi 20 quiz (punti rossi = simulazione non superata) e attività degli ultimi 14 giorni.
-- Precisione **per argomento** e classifica delle **domande più ostiche**.
+- **Panoramica**: percentuale di risposte corrette e barra con lo stato delle domande (*padroneggiate* = 3 giuste di fila, *in apprendimento*, *da ripassare*, *mai viste*), più quiz svolti, simulazioni superate e giorni consecutivi di allenamento.
+- **Andamento** (periodo a scelta: 7, 30 o 90 giorni): punteggio di ogni quiz (con la soglia del 90 % della simulazione), risposte giuste/sbagliate per giorno ed errori di ogni simulazione rispetto al limite.
+- **Calendario** degli ultimi 120 giorni di allenamento.
+- **Argomenti**: precisione per argomento dal più debole (tocca un argomento per avviare un quiz solo su quello) e classifica delle **domande più ostiche**.
+- Ogni grafico ha i dettagli al passaggio del mouse / tocco e un pulsante per vederlo come **tabella**. I colori (verde acqua / arancio / blu / grigio) restano distinguibili anche con daltonismo.
 
 ### Altro
 - **Argomenti modificabili**: 25 argomenti di partenza, aggiungi/rinomina/elimina e personalizza le parole chiave per il suggerimento.
@@ -277,7 +277,8 @@ Le tabelle mancanti vengono create automaticamente all'avvio; i dati in `data/` 
 - **Limite tentativi**: dopo 5 password errate l'accesso viene bloccato per 1 minuto.
 - Database e immagini sono accessibili **solo dopo il login**; le immagini sono verificate (PNG, JPG, WEBP, GIF) e salvate con un nome derivato dal loro contenuto (hash).
 - Se esponi l'app fuori dalla rete di casa, usa **HTTPS** e una password lunga: vedi [Come raggiungere l'app](#come-raggiungere-lapp-rete-https-e-pwa). Tailscale o un tunnel evitano di aprire porte sul router.
-- Nessuna telemetria e nessuna richiesta verso servizi esterni.
+- Il frontend non usa mai `innerHTML`: testi e dati passano da nodi di testo, gli URL delle immagini sono validati e il quiz ripristinato dal browser viene ricontrollato (evita XSS e gli avvisi CodeQL *DOM text reinterpreted as HTML*).
+- Nessuna telemetria e nessuna richiesta verso servizi esterni (i font sono inclusi).
 
 ## Struttura del progetto
 
@@ -289,8 +290,11 @@ second-chance-patente/
 │   └── auth.py            # password e sessioni
 ├── static/
 │   ├── index.html
-│   ├── app.js             # tutta l'interfaccia (vanilla JS)
+│   ├── app.js             # interfaccia: login, aggiunta, elenco, quiz, impostazioni
+│   ├── stats.js · charts.js  # pagina statistiche e grafici SVG (senza librerie)
+│   ├── dom.js             # costruzione del DOM senza innerHTML + icone
 │   ├── style.css          # tema scuro, responsive
+│   ├── fonts/             # Barlow (licenza OFL), incluso: nessuna richiesta esterna
 │   ├── sw.js              # service worker (PWA)
 │   ├── manifest.webmanifest
 │   └── icons/
@@ -334,7 +338,7 @@ PATENTE_PASSWORD=dev uvicorn app.main:app --reload --port 8000
 pytest
 ```
 
-Il frontend non ha build: modifica i file in `static/` e ricarica. Per rigenerare le icone: `python tools/make_icons.py`. Se cambi i file della shell (`index.html`, `app.js`, `style.css`) incrementa `CACHE` in `static/sw.js`.
+Il frontend non ha build: modifica i file in `static/` e ricarica. Per rigenerare le icone: `python tools/make_icons.py`. Se cambi i file della shell (`index.html`, `*.js`, `style.css`) incrementa `CACHE` in `static/sw.js`.
 
 ## Limiti noti
 

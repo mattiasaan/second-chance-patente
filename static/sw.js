@@ -1,8 +1,11 @@
 // Service worker: l'interfaccia si apre subito (anche offline),
 // i dati arrivano sempre dal server.
-const CACHE = 'second-chance-patente-v1';
-const SHELL = ['/', '/style.css', '/app.js', '/manifest.webmanifest',
-  '/icons/icon.svg', '/icons/icon-192.png', '/icons/icon-512.png'];
+const CACHE = 'second-chance-patente-v2';
+const SHELL = ['/', '/style.css', '/app.js', '/dom.js', '/charts.js', '/stats.js', '/manifest.webmanifest',
+  '/icons/icon.svg', '/icons/icon-192.png', '/icons/icon-512.png',
+  '/fonts/barlow-latin-400-normal.woff2', '/fonts/barlow-latin-500-normal.woff2',
+  '/fonts/barlow-latin-600-normal.woff2', '/fonts/barlow-latin-700-normal.woff2',
+  '/fonts/barlow-semi-condensed-latin-600-normal.woff2', '/fonts/barlow-semi-condensed-latin-700-normal.woff2'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
